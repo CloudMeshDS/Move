@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.cloudmesh.move',
-  appName: 'Move Logistics',
+  appId: 'com.cloudmesh.move.driver',
+  appName: 'Move Partner',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
