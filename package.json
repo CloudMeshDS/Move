@@ -8,9 +8,14 @@
     "build": "node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist', {recursive:true, force:true}); try{fs.unlinkSync('server.js')}catch(e){}\"",
-    "lint": "node ./node_modules/typescript/bin/tsc --noEmit"
+    "lint": "node ./node_modules/typescript/bin/tsc --noEmit",
+    "cap:sync": "node ./node_modules/@capacitor/cli/bin/capacitor sync android",
+    "cap:build": "node ./node_modules/vite/bin/vite.js build && node ./node_modules/@capacitor/cli/bin/capacitor sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@google/genai": "^2.4.0",
     "@supabase/supabase-js": "^2.117.2",
     "@tailwindcss/vite": "^4.3.3",
