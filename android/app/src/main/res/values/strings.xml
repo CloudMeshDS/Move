@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Move Partner</string>
-    <string name="title_activity_main">Move Partner</string>
-    <string name="package_name">com.cloudmesh.move.driver</string>
-    <string name="custom_url_scheme">com.cloudmesh.move.driver</string>
+    <string name="app_name">Move Logistics</string>
+    <string name="title_activity_main">Move Logistics</string>
+    <string name="package_name">com.cloudmesh.move.customer</string>
+    <string name="custom_url_scheme">com.cloudmesh.move.customer</string>
 </resources>

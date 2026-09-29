@@ -4,7 +4,7 @@ android {
     namespace = "com.cloudmesh.move"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.cloudmesh.move.driver"
+        applicationId "com.cloudmesh.move.customer"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
