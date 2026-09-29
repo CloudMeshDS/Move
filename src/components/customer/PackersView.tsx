@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Home, Truck, ShieldCheck, Check, Plus, Minus, ArrowRight } from 'lucide-react';
 import { useLogistics } from '../../context/LogisticsContext';
+import { catalogApi } from '../../api';
 
 interface PackersViewProps {
   onOrderCreated: (orderId: string) => void;
@@ -11,16 +12,7 @@ export function PackersView({ onOrderCreated }: PackersViewProps) {
   const isLight = theme === 'light';
 
   const [houseSize, setHouseSize] = useState<'1 Bed Flat' | '2 Bed Flat' | '3-4 Bed House' | 'Commercial Office'>('2 Bed Flat');
-  const [items, setItems] = useState<Record<string, number>>({
-    'Queen / King Bed & Mattress': 2,
-    'Lounge Suite (3+2 Seater)': 1,
-    'Dining Table + 6 Chairs': 1,
-    'Double Door Refrigerator': 1,
-    'Front-Load Washing Machine': 1,
-    'Smart TV (65 Inch)': 1,
-    'Chest of Drawers / Wardrobe': 2,
-    'Heavy-Duty Moving Cartons': 15
-  });
+  const [items, setItems] = useState<Record<string, number>>(() => catalogApi.getMovingInventory());
   const [hasLiftPickup, setHasLiftPickup] = useState<boolean>(true);
   const [hasLiftDrop, setHasLiftDrop] = useState<boolean>(true);
   const [packingTier, setPackingTier] = useState<'standard' | 'premium'>('premium');
@@ -34,11 +26,14 @@ export function PackersView({ onOrderCreated }: PackersViewProps) {
 
   const totalItemCount = Object.values(items).reduce((a, b) => a + b, 0);
 
-  // Realistic New Zealand moving costs in NZD
-  const baseShiftCost = houseSize === '1 Bed Flat' ? 240.0 : houseSize === '2 Bed Flat' ? 380.0 : houseSize === '3-4 Bed House' ? 560.0 : 750.0;
-  const packingAddon = packingTier === 'premium' ? 95.0 : 45.0;
-  const stairsAddon = (!hasLiftPickup ? 30.0 : 0) + (!hasLiftDrop ? 30.0 : 0);
-  const totalCost = baseShiftCost + packingAddon + stairsAddon;
+  // Dynamic quote calculation from catalogApi
+  const quote = catalogApi.calculateRelocationQuote({
+    houseSize,
+    packingTier,
+    hasLiftPickup,
+    hasLiftDrop
+  });
+  const { baseShiftCost, packingAddon, stairsAddon, totalCost } = quote;
 
   const handleBook = () => {
     const pickup = currentCity.popularLandmarks[0];

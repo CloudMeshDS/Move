@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useLogistics } from '../../context/LogisticsContext';
 import { MapPoint, VehicleCategoryId } from '../../types/logistics';
-import { GOODS_TYPES } from '../../data/mockData';
+import { catalogApi } from '../../api';
 import { InteractiveCityMap } from '../map/InteractiveCityMap';
 
 interface BookingViewProps {
@@ -26,7 +26,15 @@ interface BookingViewProps {
 }
 
 export function BookingView({ onOrderCreated }: BookingViewProps) {
-  const { currentCity, vehicleOptions, calculateFare, createBooking, drivers, theme } = useLogistics();
+  const {
+    currentCity,
+    vehicleOptions,
+    calculateFare,
+    createBooking,
+    goodsCategories,
+    drivers,
+    theme
+  } = useLogistics();
 
   const isLight = theme === 'light';
 
@@ -38,20 +46,26 @@ export function BookingView({ onOrderCreated }: BookingViewProps) {
   const [goodsType, setGoodsType] = useState<string>('Carton Boxes & Retail Parcels');
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'apple_pay' | 'poli' | 'cash'>('card');
   const [promoCode, setPromoCode] = useState<string>('KIWI10');
+  const [promoDiscountAmount, setPromoDiscountAmount] = useState<number>(10);
+  const [promoMessage, setPromoMessage] = useState<string>('$10 Off Welcome Kiwi Discount');
   const [promoApplied, setPromoApplied] = useState<boolean>(true);
   const [showFareDetails, setShowFareDetails] = useState<boolean>(false);
   const [pickingLocationType, setPickingLocationType] = useState<'pickup' | 'drop' | null>(null);
 
-  const discountAmount = promoApplied ? 10 : 0;
+  const discountAmount = promoApplied ? promoDiscountAmount : 0;
   const currentFare = calculateFare(selectedVehicle, pickup, drop, helperCount, discountAmount);
   const activeVehicleConfig = vehicleOptions.find((v) => v.id === selectedVehicle) || vehicleOptions[0];
 
-  const handleApplyPromo = () => {
-    if (promoCode.trim().toUpperCase() === 'KIWI10' || promoCode.trim().toUpperCase() === 'NZFREIGHT') {
+  const handleApplyPromo = async () => {
+    const res = await catalogApi.validatePromo(promoCode, currentFare.baseFare + currentFare.distanceFare);
+    if (res.data?.valid) {
       setPromoApplied(true);
+      setPromoDiscountAmount(res.data.discountValue);
+      setPromoMessage(res.data.description);
     } else {
-      alert('Invalid voucher code. Try KIWI10');
+      alert(res.error || 'Invalid promo code. Try KIWI10 or NZFREIGHT');
       setPromoApplied(false);
+      setPromoDiscountAmount(0);
     }
   };
 
@@ -382,7 +396,14 @@ export function BookingView({ onOrderCreated }: BookingViewProps) {
               isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700 text-white'
             }`}
           >
-            {GOODS_TYPES.map((g) => (
+            {(goodsCategories && goodsCategories.length > 0 ? goodsCategories : [
+              { id: 'cartons', label: 'Carton Boxes & Retail Parcels', icon: 'Package' },
+              { id: 'furniture', label: 'Furniture (Bed, Lounge Suite, Table)', icon: 'Armchair' },
+              { id: 'whiteware', label: 'Whiteware (Fridge, Washing Machine, Dryer)', icon: 'Tv' },
+              { id: 'pallets', label: 'Commercial CHEP Pallets & Freight', icon: 'Truck' },
+              { id: 'tradie', label: 'Tradie Supplies & Timber / Hardware', icon: 'Wrench' },
+              { id: 'urgent', label: 'Urgent Documents / Legal Pack', icon: 'FileText' }
+            ]).map((g) => (
               <option key={g.id} value={g.label} className={isLight ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}>
                 {g.label}
               </option>

@@ -4,6 +4,7 @@ import { CITY_HUBS, INITIAL_DRIVERS, VEHICLE_OPTIONS } from '../data/mockData';
 import {
   CityHub,
   DriverPartner,
+  DriverStatus,
   FareBreakdown,
   LogisticsOrder,
   MapPoint,
@@ -17,19 +18,27 @@ import {
   LiveActivityFeedItem
 } from '../types/logistics';
 import { sound } from '../utils/audio';
-import { getStoredSupabaseConfig, testSupabaseConnection } from '../lib/supabase';
+import { testSupabaseConnection } from '../lib/supabase';
 import {
-  fetchDriversFromSupabase,
-  fetchOrdersFromSupabase,
-  saveDriverToSupabase,
-  saveOrderToSupabase,
   subscribeToRealtimeDrivers,
   subscribeToRealtimeOrders
 } from '../services/supabaseService';
+import {
+  vehiclesApi,
+  hubsApi,
+  driversApi,
+  ordersApi,
+  telemetryApi,
+  customerApi,
+  catalogApi,
+  geoApi,
+  CustomerProfile,
+  GoodsCategory
+} from '../api';
 
 export type UserRole = 'customer' | 'driver' | 'admin';
 
-interface CreateBookingParams {
+export interface CreateBookingParams {
   vehicleType: VehicleCategoryId;
   pickup: MapPoint;
   drop: MapPoint;
@@ -43,6 +52,7 @@ interface CreateBookingParams {
 interface LogisticsContextType {
   activeRole: UserRole;
   setActiveRole: (role: UserRole) => void;
+  cityHubs: CityHub[];
   currentCity: CityHub;
   setCurrentCity: (city: CityHub) => void;
   vehicleOptions: VehicleOption[];
@@ -52,6 +62,10 @@ interface LogisticsContextType {
   orders: LogisticsOrder[];
   activeOrder: LogisticsOrder | null;
   driverIncomingOrder: LogisticsOrder | null;
+  customerProfile: CustomerProfile;
+  updateCustomerProfile: (updates: Partial<CustomerProfile>) => Promise<void>;
+  topUpWallet: (amount: number) => Promise<void>;
+  goodsCategories: GoodsCategory[];
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
   splitView: boolean;
@@ -102,8 +116,23 @@ const LogisticsContext = createContext<LogisticsContextType | undefined>(undefin
 export function LogisticsProvider({ children }: { children: React.ReactNode }) {
   const [activeRole, setActiveRole] = useState<UserRole>('customer');
   const [splitView, setSplitView] = useState<boolean>(false);
+  
+  // Dynamic API state
+  const [cityHubs, setCityHubs] = useState<CityHub[]>(CITY_HUBS);
   const [currentCity, setCurrentCity] = useState<CityHub>(CITY_HUBS[0]);
   const [vehicleOptions, setVehicleOptions] = useState<VehicleOption[]>(VEHICLE_OPTIONS);
+  const [goodsCategories, setGoodsCategories] = useState<GoodsCategory[]>([]);
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile>({
+    id: 'cust-99',
+    name: 'Sam Callaghan',
+    phone: '+64 21 784 9912',
+    email: 'sam.callaghan@nzbusiness.co.nz',
+    rating: 4.95,
+    walletBalance: 120.0,
+    currency: 'NZD',
+    savedAddresses: [],
+  });
+
   const [drivers, setDrivers] = useState<DriverPartner[]>(() => {
     const saved = localStorage.getItem('move_drivers_v1') || localStorage.getItem('porter_drivers_v1');
     return saved ? JSON.parse(saved) : INITIAL_DRIVERS;
@@ -122,7 +151,7 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
   const [isSupabaseLive, setIsSupabaseLive] = useState<boolean>(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState<boolean>(false);
 
-  // Primary App Theme State ('light' | 'dark') - default is explicitly 'light'
+  // Primary App Theme State ('light' | 'dark')
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('move_theme_v2') || localStorage.getItem('porter_theme_v2');
     return saved === 'dark' || saved === 'light' ? saved : 'light';
@@ -174,56 +203,17 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
 
   const [latencyMs, setLatencyMs] = useState<number>(11);
 
-  // Live traffic ticker messages across New Zealand hubs
-  const liveTrafficTicker = [
-    '🟢 SH1 Auckland Harbour Bridge: Free flowing 84 km/h northbound & southbound',
-    '🟡 Wellington Ngauranga Gorge: Moderate flow 68 km/h',
-    '🟢 Christchurch Brougham St / Port Lyttelton: Heavy freight route clear',
-    '🔵 Tauranga Kaimai Ranges SH29: Wet road surface, advisory speed 70 km/h',
-    '🟢 Hamilton Expressway (SH1): Free flow 108 km/h',
-    '🚢 Interislander / Bluebridge Cook Strait: Kaiarahi freight sailing on schedule',
-    '⚡ Live Dispatch Telemetry: 18 Drivers active across Auckland, Wellington & Canterbury'
-  ];
+  // Dynamic traffic alerts ticker for the active city
+  const [liveTrafficTicker, setLiveTrafficTicker] = useState<string[]>(() =>
+    telemetryApi.getTrafficAlerts(CITY_HUBS[0].id)
+  );
 
-  // Initial live activity feed events
-  const [liveActivityFeed, setLiveActivityFeed] = useState<LiveActivityFeedItem[]>([
-    {
-      id: 'lf-1',
-      timestamp: 'Just now',
-      city: 'Auckland',
-      vehicleType: 'Toyota HiAce Van',
-      event: 'Consignment collected in Penrose Industrial Estate',
-      badge: 'DISPATCH',
-      accent: 'blue'
-    },
-    {
-      id: 'lf-2',
-      timestamp: '1m ago',
-      city: 'Auckland',
-      vehicleType: '2T Box Truck',
-      event: 'Proof of Delivery signed at Albany Distribution Hub',
-      badge: 'DELIVERED',
-      accent: 'emerald'
-    },
-    {
-      id: 'lf-3',
-      timestamp: '3m ago',
-      city: 'Christchurch',
-      vehicleType: 'Metro Courier',
-      event: 'Express medical consignment picked up in Riccarton',
-      badge: 'IN TRANSIT',
-      accent: 'purple'
-    },
-    {
-      id: 'lf-4',
-      timestamp: '5m ago',
-      city: 'Wellington',
-      vehicleType: 'Flat Deck Ute',
-      event: 'Timber framing delivery en route to Lower Hutt',
-      badge: 'EN ROUTE',
-      accent: 'amber'
-    }
-  ]);
+  useEffect(() => {
+    setLiveTrafficTicker(telemetryApi.getTrafficAlerts(currentCity.id));
+  }, [currentCity.id]);
+
+  // Dynamic live activity feed from API
+  const [liveActivityFeed, setLiveActivityFeed] = useState<LiveActivityFeedItem[]>([]);
 
   const addLiveFeedEvent = (
     event: string,
@@ -241,6 +231,13 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
       accent
     };
     setLiveActivityFeed((prev) => [newItem, ...prev.slice(0, 19)]);
+    telemetryApi.postEvent({
+      city,
+      vehicleType,
+      event,
+      badge: 'LIVE DISPATCH',
+      accent
+    });
   };
 
   // Clock tick every 1s and periodic telemetry jitter
@@ -267,7 +264,6 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
     liveTripsCount: orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length
   };
 
-  // Sync sound utility state
   const setSoundEnabled = (enabled: boolean) => {
     setSoundEnabledState(enabled);
     sound.enabled = enabled;
@@ -282,30 +278,46 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('move_orders_v1', JSON.stringify(orders));
   }, [orders]);
 
-  // Supabase Initial Handshake & Hydration
+  // Master API Hydration & Handshake
   const refreshFromSupabase = async () => {
-    const config = getStoredSupabaseConfig();
-    if (!config.isConfigured) {
-      setIsSupabaseLive(false);
-      return;
-    }
-
     try {
-      const ping = await testSupabaseConnection();
-      if (ping.success) {
-        setIsSupabaseLive(true);
-        const remoteDrivers = await fetchDriversFromSupabase();
-        if (remoteDrivers && remoteDrivers.length > 0) {
-          setDrivers(remoteDrivers);
-        }
-        const remoteOrders = await fetchOrdersFromSupabase();
-        if (remoteOrders && remoteOrders.length > 0) {
-          setOrders(remoteOrders);
-        }
-      } else {
-        setIsSupabaseLive(false);
+      const [hubsRes, vehRes, drvRes, ordRes, custRes, goodsRes, feedRes] = await Promise.all([
+        hubsApi.getAll(),
+        vehiclesApi.getAll(),
+        driversApi.getAll(),
+        ordersApi.getAll(),
+        customerApi.getProfile(),
+        catalogApi.getGoodsTypes(),
+        telemetryApi.getActivityFeed()
+      ]);
+
+      if (hubsRes.data && hubsRes.data.length > 0) {
+        setCityHubs(hubsRes.data);
+        setCurrentCity((curr) => hubsRes.data!.find((c) => c.id === curr.id) || hubsRes.data![0]);
       }
-    } catch {
+      if (vehRes.data && vehRes.data.length > 0) {
+        setVehicleOptions(vehRes.data);
+      }
+      if (drvRes.data && drvRes.data.length > 0) {
+        setDrivers(drvRes.data);
+      }
+      if (ordRes.data && ordRes.data.length > 0) {
+        setOrders(ordRes.data);
+      }
+      if (custRes.data) {
+        setCustomerProfile(custRes.data);
+      }
+      if (goodsRes.data) {
+        setGoodsCategories(goodsRes.data);
+      }
+      if (feedRes.data && feedRes.data.length > 0) {
+        setLiveActivityFeed(feedRes.data);
+      }
+
+      const ping = await testSupabaseConnection();
+      setIsSupabaseLive(ping.success);
+    } catch (err) {
+      console.warn('API Sync initial error:', err);
       setIsSupabaseLive(false);
     }
   };
@@ -359,17 +371,23 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [driverIncomingOrder?.id, currentDriver.status]);
 
-  // Utility to calculate distance between map percentage points
-  const calculateDistanceKm = (p1: MapPoint, p2: MapPoint): number => {
-    const dx = p1.x - p2.x;
-    const dy = p1.y - p2.y;
-    // Map is roughly 25km x 25km representation
-    const distPercentage = Math.sqrt(dx * dx + dy * dy);
-    const km = Math.max(1.8, Math.round((distPercentage * 0.35) * 10) / 10);
-    return km;
+  // Customer Profile API Mutators
+  const updateCustomerProfile = async (updates: Partial<CustomerProfile>) => {
+    const res = await customerApi.updateProfile(updates);
+    if (res.data) {
+      setCustomerProfile(res.data);
+    }
   };
 
-  // Calculate fare with transparent breakdown
+  const topUpWallet = async (amount: number) => {
+    const res = await customerApi.topUpWallet(amount);
+    if (res.data) {
+      setCustomerProfile((prev) => ({ ...prev, walletBalance: res.data!.newBalance }));
+      sound.playSuccessChime();
+    }
+  };
+
+  // Calculate fare using dynamic vehicle rate card & geographic distance calculation
   const calculateFare = (
     vehicleType: VehicleCategoryId,
     pickup: MapPoint,
@@ -378,16 +396,16 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
     discount = 0
   ): FareBreakdown => {
     const vehicle = vehicleOptions.find((v) => v.id === vehicleType) || vehicleOptions[0];
-    const distanceKm = calculateDistanceKm(pickup, drop);
+    const distanceKm = geoApi.calculateDistanceKm(pickup, drop);
     const billableKm = Math.max(0, distanceKm - vehicle.baseKm);
     const distanceFare = Math.round(billableKm * vehicle.perKmRate * 10) / 10;
     const helperFare = helperCount * vehicle.helperFee;
     const surgeMultiplier = 1.0;
     const surgeFee = Math.round((vehicle.baseFare + distanceFare) * (surgeMultiplier - 1.0) * 10) / 10;
     const subtotal = vehicle.baseFare + distanceFare + helperFare + surgeFee;
-    const gstTax = Math.round(subtotal * 0.15 * 10) / 10; // 15% New Zealand GST
+    const gstTax = Math.round(subtotal * 0.15 * 10) / 10; // 15% NZ GST
     const totalFare = Math.max(15, Math.round((subtotal + gstTax - discount) * 10) / 10);
-    const platformCut = Math.round(totalFare * 0.20 * 10) / 10; // 20% platform commission
+    const platformCut = Math.round(totalFare * 0.20 * 10) / 10; // 20% commission
     const driverEarnings = Math.round((totalFare - platformCut) * 10) / 10;
 
     return {
@@ -406,36 +424,7 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  // Generate intermediate waypoint route points for smooth vehicle animation
-  const generateRoutePoints = (start: MapPoint, end: MapPoint): Array<{ x: number; y: number }> => {
-    const points: Array<{ x: number; y: number }> = [];
-    const steps = 25;
-    // Add realistic Manhattan-like city street bends
-    const midX = start.x;
-    const midY = end.y;
-
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      if (t < 0.5) {
-        const subT = t * 2;
-        // Travel horizontally first
-        points.push({
-          x: Number((start.x + (midX - start.x) * subT + Math.sin(subT * Math.PI) * 1.2).toFixed(2)),
-          y: Number((start.y + (midY - start.y) * subT).toFixed(2))
-        });
-      } else {
-        const subT = (t - 0.5) * 2;
-        // Travel vertically to destination
-        points.push({
-          x: Number((midX + (end.x - midX) * subT).toFixed(2)),
-          y: Number((midY + (end.y - midY) * subT + Math.sin(subT * Math.PI) * 1.2).toFixed(2))
-        });
-      }
-    }
-    return points;
-  };
-
-  // Create customer booking
+  // Create customer booking via ordersApi
   const createBooking = (params: CreateBookingParams): LogisticsOrder => {
     const vehicle = vehicleOptions.find((v) => v.id === params.vehicleType) || vehicleOptions[0];
     const fare = calculateFare(
@@ -447,14 +436,14 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
     );
 
     const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
-    const route = generateRoutePoints(params.pickup, params.drop);
+    const route = geoApi.generateRoutePoints(params.pickup, params.drop);
 
     const newOrder: LogisticsOrder = {
       id: `ord-${Date.now().toString().slice(-6)}`,
       trackingNumber: `MOV-${Math.floor(100000 + Math.random() * 900000)}`,
-      customerId: 'cust-99',
-      customerName: 'Sam Callaghan',
-      customerPhone: '+64 21 784 9912',
+      customerId: customerProfile.id,
+      customerName: customerProfile.name,
+      customerPhone: customerProfile.phone,
       vehicleType: params.vehicleType,
       vehicleName: vehicle.name,
       pickup: params.pickup,
@@ -477,15 +466,23 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
     setActiveOrderId(newOrder.id);
     sound.playTap();
 
-    // Sync to Supabase
-    saveOrderToSupabase(newOrder);
+    // Call API to persist order in Supabase
+    ordersApi.create(newOrder);
 
-    // Auto simulate driver acceptance after 4 seconds if not on driver screen
+    // Publish telemetry activity
+    telemetryApi.postEvent({
+      city: currentCity.name,
+      vehicleType: vehicle.name,
+      event: `Booking placed for ${vehicle.name}: ${params.pickup.name} → ${params.drop.name}`,
+      badge: 'DISPATCH',
+      accent: 'blue'
+    });
+
+    // Auto simulate driver assignment if not manually claimed
     setTimeout(() => {
       setOrders((prevOrders) => {
         const ord = prevOrders.find((o) => o.id === newOrder.id);
         if (ord && ord.status === 'searching') {
-          // Find matching driver
           const matchingDriver = drivers.find(
             (d) => d.vehicleType === ord.vehicleType && d.status === 'online_idle'
           ) || drivers[0];
@@ -501,8 +498,8 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
             driverVehiclePlate: matchingDriver.vehiclePlate,
             driverPhotoUrl: matchingDriver.photoUrl
           };
-          saveOrderToSupabase(assignedOrder);
 
+          ordersApi.assignDriver(assignedOrder.id, matchingDriver);
           return prevOrders.map((o) => (o.id === newOrder.id ? assignedOrder : o));
         }
         return prevOrders;
@@ -513,7 +510,7 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Driver accepts order
-  const acceptIncomingOrder = (orderId: string) => {
+  const acceptIncomingOrder = async (orderId: string) => {
     sound.playSuccessChime();
     setOrders((prev) =>
       prev.map((o) =>
@@ -535,12 +532,22 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
       prev.map((d) => (d.id === currentDriver.id ? { ...d, status: 'assigned', activeOrderId: orderId } : d))
     );
     setActiveOrderId(orderId);
+
+    // Call APIs
+    await ordersApi.assignDriver(orderId, currentDriver);
+    await driversApi.updateStatus(currentDriver.id, 'assigned');
+    telemetryApi.postEvent({
+      city: currentCity.name,
+      vehicleType: currentDriver.vehicleName,
+      event: `Partner ${currentDriver.name} accepted trip dispatch`,
+      badge: 'ASSIGNED',
+      accent: 'purple'
+    });
   };
 
   // Driver rejects order
   const rejectIncomingOrder = (orderId: string) => {
     sound.playTap();
-    // Re-route to next driver or keep in searching queue
     const alternateDriver = drivers.find(
       (d) => d.id !== currentDriver.id && d.status === 'online_idle'
     );
@@ -562,48 +569,58 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
+  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
     sound.playTap();
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    await ordersApi.updateStatus(orderId, status);
   };
 
   // Advance delivery workflow through real stages
-  const advanceOrderStage = (orderId: string) => {
+  const advanceOrderStage = async (orderId: string) => {
+    let nextStatus: OrderStatus | null = null;
+    let nextProgress = 0;
+
     setOrders((prev) =>
       prev.map((ord) => {
         if (ord.id !== orderId) return ord;
-        let nextStatus: OrderStatus = ord.status;
-        let nextProgress = ord.progressPercent;
+        let status: OrderStatus = ord.status;
+        let progress = ord.progressPercent;
 
         if (ord.status === 'driver_assigned') {
-          nextStatus = 'arrived_pickup';
-          nextProgress = 15;
+          status = 'arrived_pickup';
+          progress = 15;
           sound.playTap();
         } else if (ord.status === 'arrived_pickup') {
-          nextStatus = 'loading';
-          nextProgress = 25;
+          status = 'loading';
+          progress = 25;
           sound.playTap();
         } else if (ord.status === 'loading') {
-          nextStatus = 'in_transit';
-          nextProgress = 35;
+          status = 'in_transit';
+          progress = 35;
           sound.playSuccessChime();
         } else if (ord.status === 'in_transit') {
-          nextStatus = 'arrived_drop';
-          nextProgress = 90;
+          status = 'arrived_drop';
+          progress = 90;
           sound.playTap();
         } else if (ord.status === 'arrived_drop') {
-          nextStatus = 'unloading';
-          nextProgress = 95;
+          status = 'unloading';
+          progress = 95;
           sound.playTap();
         }
 
-        return { ...ord, status: nextStatus, progressPercent: nextProgress };
+        nextStatus = status;
+        nextProgress = progress;
+        return { ...ord, status, progressPercent: progress };
       })
     );
+
+    if (nextStatus) {
+      await ordersApi.updateStatus(orderId, nextStatus, nextProgress);
+    }
   };
 
   // Complete delivery with digital signature POD
-  const completeDelivery = (orderId: string, pod: ProofOfDelivery) => {
+  const completeDelivery = async (orderId: string, pod: ProofOfDelivery) => {
     sound.playSuccessChime();
     try {
       confetti({
@@ -628,7 +645,6 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
       })
     );
 
-    // Credit driver wallet and increment trip count
     const targetOrder = orders.find((o) => o.id === orderId);
     if (targetOrder && targetOrder.driverId) {
       setDrivers((prev) =>
@@ -646,10 +662,21 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
           return d;
         })
       );
+
+      // Invoke APIs
+      await ordersApi.complete(orderId, pod);
+      await driversApi.creditEarnings(targetOrder.driverId, targetOrder.fare.driverEarnings);
+      telemetryApi.postEvent({
+        city: currentCity.name,
+        vehicleType: targetOrder.vehicleName,
+        event: `POD signed for shipment ${targetOrder.trackingNumber} at ${targetOrder.drop.name}`,
+        badge: 'DELIVERED',
+        accent: 'emerald'
+      });
     }
   };
 
-  const cancelOrder = (orderId: string, reason = 'User cancelled') => {
+  const cancelOrder = async (orderId: string, reason = 'User cancelled') => {
     sound.playTap();
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: 'cancelled' } : o))
@@ -661,38 +688,44 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
           d.id === targetOrder.driverId ? { ...d, status: 'online_idle', activeOrderId: undefined } : d
         )
       );
+      driversApi.updateStatus(targetOrder.driverId, 'online_idle');
     }
     pauseDriveSimulation();
+    await ordersApi.cancel(orderId, reason);
   };
 
   // Toggle driver partner availability
-  const toggleDriverOnline = (driverId: string) => {
+  const toggleDriverOnline = async (driverId: string) => {
     sound.playTap();
+    let nextStatus: DriverStatus = 'offline';
     setDrivers((prev) =>
       prev.map((d) => {
         if (d.id === driverId) {
-          const newStatus = d.status === 'offline' ? 'online_idle' : 'offline';
-          return { ...d, status: newStatus };
+          nextStatus = d.status === 'offline' ? 'online_idle' : 'offline';
+          return { ...d, status: nextStatus };
         }
         return d;
       })
     );
+    await driversApi.updateStatus(driverId, nextStatus);
   };
 
   // Admin updates vehicle fare card
-  const updateRateCard = (vehicleId: VehicleCategoryId, updates: Partial<VehicleOption>) => {
+  const updateRateCard = async (vehicleId: VehicleCategoryId, updates: Partial<VehicleOption>) => {
     sound.playTap();
     setVehicleOptions((prev) =>
       prev.map((v) => (v.id === vehicleId ? { ...v, ...updates } : v))
     );
+    await vehiclesApi.updateRateCard(vehicleId, updates);
   };
 
   // Admin approves KYC
-  const approveDriverKYC = (driverId: string, approved: boolean) => {
+  const approveDriverKYC = async (driverId: string, approved: boolean) => {
     sound.playTap();
     setDrivers((prev) =>
       prev.map((d) => (d.id === driverId ? { ...d, kycStatus: approved ? 'approved' : 'rejected' } : d))
     );
+    await driversApi.updateKYC(driverId, approved ? 'approved' : 'rejected');
   };
 
   // Drive simulation runner
@@ -725,6 +758,7 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
         const nextProgress = Math.min(92, ord.progressPercent + 3.5);
         if (nextProgress >= 90) {
           pauseDriveSimulation();
+          ordersApi.updateStatus(orderId, 'arrived_drop', 90);
           return prev.map((o) =>
             o.id === orderId ? { ...o, progressPercent: 90, status: 'arrived_drop' } : o
           );
@@ -747,13 +781,28 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('move_drivers_v1');
     localStorage.removeItem('porter_orders_v1');
     localStorage.removeItem('porter_drivers_v1');
+    refreshFromSupabase();
     sound.playTap();
   };
 
   // Pre-seed an instant sample order for immediate demonstration
   const loadQuickDemoOrder = () => {
-    const pickup = currentCity.popularLandmarks[0];
-    const drop = currentCity.popularLandmarks[1];
+    const pickup = currentCity.popularLandmarks[0] || {
+      x: 45,
+      y: 30,
+      name: 'Port of Auckland Freight Hub',
+      address: 'Quay Street, CBD',
+      area: 'CBD Waterfront',
+      city: currentCity.name
+    };
+    const drop = currentCity.popularLandmarks[1] || {
+      x: 52,
+      y: 45,
+      name: 'Penrose Industrial Distribution Center',
+      address: 'Great South Road',
+      area: 'Penrose',
+      city: currentCity.name
+    };
     createBooking({
       vehicleType: 'cargo_van',
       pickup,
@@ -770,6 +819,7 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
       value={{
         activeRole,
         setActiveRole,
+        cityHubs,
         currentCity,
         setCurrentCity,
         vehicleOptions,
@@ -779,6 +829,10 @@ export function LogisticsProvider({ children }: { children: React.ReactNode }) {
         orders,
         activeOrder,
         driverIncomingOrder,
+        customerProfile,
+        updateCustomerProfile,
+        topUpWallet,
+        goodsCategories,
         soundEnabled,
         setSoundEnabled,
         splitView,

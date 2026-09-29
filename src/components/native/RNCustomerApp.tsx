@@ -10,12 +10,12 @@ import {
   Alert
 } from 'react-native';
 import { useLogistics } from '../../context/LogisticsContext';
-import { CITY_HUBS } from '../../data/mockData';
 import { VehicleCategoryId, MapPoint } from '../../types/logistics';
 import { sound } from '../../utils/audio';
 
 export function RNCustomerApp() {
   const {
+    cityHubs,
     currentCity,
     setCurrentCity,
     vehicleOptions,
@@ -203,7 +203,7 @@ export function RNCustomerApp() {
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>Select Operating Territory</Text>
               <View style={styles.chipsRow}>
-                {CITY_HUBS.map((city) => (
+                {cityHubs.map((city) => (
                   <TouchableOpacity
                     key={city.id}
                     style={[

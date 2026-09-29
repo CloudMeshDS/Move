@@ -12,16 +12,25 @@ import {
   Layers
 } from 'lucide-react';
 import { useLogistics } from '../../context/LogisticsContext';
-import { CITY_HUBS } from '../../data/mockData';
 import { BookingView } from './BookingView';
 import { LiveTrackingView } from './LiveTrackingView';
 import { PackersView } from './PackersView';
 import { TripHistoryView } from './TripHistoryView';
 
 export function CustomerApp() {
-  const { currentCity, setCurrentCity, activeOrder, loadQuickDemoOrder, theme } = useLogistics();
+  const {
+    cityHubs,
+    currentCity,
+    setCurrentCity,
+    customerProfile,
+    topUpWallet,
+    activeOrder,
+    loadQuickDemoOrder,
+    theme
+  } = useLogistics();
   const [activeTab, setActiveTab] = useState<'book' | 'packers' | 'tracking' | 'history'>('book');
   const [selectedHistoryOrderId, setSelectedHistoryOrderId] = useState<string | null>(null);
+  const [showWalletModal, setShowWalletModal] = useState<boolean>(false);
 
   const isLight = theme === 'light';
 
@@ -56,14 +65,14 @@ export function CustomerApp() {
                 aria-label="Current City"
                 value={currentCity.id}
                 onChange={(e) => {
-                  const city = CITY_HUBS.find((c) => c.id === e.target.value);
+                  const city = cityHubs.find((c) => c.id === e.target.value);
                   if (city) setCurrentCity(city);
                 }}
                 className={`appearance-none bg-transparent text-[11px] font-semibold pr-4 cursor-pointer focus:outline-none ${
                   isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {CITY_HUBS.map((c) => (
+                {cityHubs.map((c) => (
                   <option key={c.id} value={c.id} className={isLight ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}>
                     {c.name}
                   </option>
@@ -76,15 +85,22 @@ export function CustomerApp() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
-          {/* Move Wallet */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs border ${
-            isLight
-              ? 'bg-blue-50 border-blue-200 text-blue-900'
-              : 'bg-slate-800/80 border-slate-700/80 text-white'
-          }`}>
+          {/* Dynamic Move Wallet */}
+          <button
+            type="button"
+            onClick={() => setShowWalletModal(true)}
+            title="Move Digital Wallet"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs border transition hover:scale-105 active:scale-95 ${
+              isLight
+                ? 'bg-blue-50 border-blue-200 text-blue-900'
+                : 'bg-slate-800/80 border-slate-700/80 text-white'
+            }`}
+          >
             <Wallet className="w-3.5 h-3.5 text-blue-500" />
-            <span className={`font-mono font-bold ${isLight ? 'text-blue-950' : 'text-white'}`}>$120.00</span>
-          </div>
+            <span className={`font-mono font-bold ${isLight ? 'text-blue-950' : 'text-white'}`}>
+              ${customerProfile.walletBalance.toFixed(2)}
+            </span>
+          </button>
 
           {/* Quick Demo Trigger */}
           <button
@@ -101,6 +117,59 @@ export function CustomerApp() {
           </button>
         </div>
       </header>
+
+      {/* Wallet Top-Up Modal */}
+      {showWalletModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className={`w-full max-w-sm rounded-3xl p-5 border shadow-2xl space-y-4 ${
+            isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-700 text-white'
+          }`}>
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-blue-500" />
+                <h4 className="font-bold text-sm">Move Digital Wallet</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWalletModal(false)}
+                className="text-xs text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className={`p-4 rounded-2xl border text-center ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/60 border-slate-700'
+            }`}>
+              <span className="text-xs text-slate-400">Available Balance (NZD)</span>
+              <div className="text-2xl font-mono font-extrabold text-blue-600 mt-1">
+                ${customerProfile.walletBalance.toFixed(2)}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Linked to {customerProfile.phone}</p>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-semibold block text-slate-400">Instant Top-Up (POLi / Card):</span>
+              <div className="grid grid-cols-3 gap-2">
+                {[20, 50, 100].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => {
+                      topUpWallet(amt);
+                      setShowWalletModal(false);
+                    }}
+                    className="py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-mono font-bold text-xs shadow-xs transition"
+                  >
+                    +${amt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Active Trip Sticky Alert Banner (if user navigated to another tab) */}
       {currentViewOrder &&
