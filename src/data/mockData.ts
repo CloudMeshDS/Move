@@ -2,98 +2,236 @@ import { CityHub, DriverPartner, VehicleOption } from '../types/logistics';
 
 export const VEHICLE_OPTIONS: VehicleOption[] = [
   {
-    id: 'courier',
-    name: 'Metro Courier (Car / EV)',
-    subTitle: 'Express Doorstep Courier & Small Parcels',
-    tagline: 'Best for urgent documents, retail orders, electronics, keys',
-    capacityKg: 35,
-    dimensions: '50cm x 50cm x 50cm boot parcel',
-    baseFare: 16.5,
-    baseKm: 3,
-    perKmRate: 2.2,
+    id: '2_wheeler',
+    name: '2 Wheeler',
+    subTitle: 'Express 2-Wheeler Delivery',
+    tagline: 'Best for urgent documents, clothes, food, parcels, keys',
+    capacityKg: 20,
+    dimensions: '40cm x 40cm box',
+    baseFare: 41.0,
+    baseKm: 1,
+    perKmRate: 12.0,
     helperFee: 0,
-    etaMins: 4,
-    iconType: 'courier',
-    popularFor: 'Fastest urban delivery in CBD'
+    etaMins: 1,
+    iconType: 'bike',
+    popularFor: 'Fastest doorstep delivery in city',
+    dimensionTag: '40 CM'
   },
   {
-    id: 'cargo_van',
-    name: 'Cargo Van (Toyota HiAce)',
-    subTitle: 'New Zealand\'s #1 Choice for Urban Freight',
-    tagline: 'Ideal for 15-20 cartons, small appliances, trades supplies',
-    capacityKg: 1000,
-    dimensions: '3.0m (L) x 1.6m (W) x 1.4m (H)',
-    baseFare: 45.0,
+    id: 'scooter',
+    name: 'Scooter',
+    subTitle: 'Eco-friendly Electric Scooter Courier',
+    tagline: 'Ideal for packages, electronics, lunch boxes, retail orders',
+    capacityKg: 20,
+    dimensions: '45cm x 45cm trunk',
+    baseFare: 75.0,
+    baseKm: 2,
+    perKmRate: 14.0,
+    helperFee: 0,
+    etaMins: 3,
+    iconType: 'scooter',
+    popularFor: 'Quick city courier with EV zero-emission',
+    badge: 'New'
+  },
+  {
+    id: '3_wheeler',
+    name: '3 Wheeler',
+    subTitle: 'Reliable 3 Wheeler Cargo Auto',
+    tagline: 'Medium cartons, wholesale supplies, electrical appliances',
+    capacityKg: 500,
+    dimensions: '1.6m x 1.2m x 1.1m open carrier',
+    baseFare: 337.0,
+    baseKm: 3,
+    perKmRate: 22.0,
+    helperFee: 100.0,
+    etaMins: 1,
+    iconType: '3wheeler',
+    popularFor: 'City market & local commercial shifting'
+  },
+  {
+    id: 'e_loader',
+    name: 'E Loader',
+    subTitle: 'Electric 3-Wheeler Cargo Loader',
+    tagline: 'Eco-friendly urban freight carrier with high torque',
+    capacityKg: 310,
+    dimensions: '1.5m x 1.1m x 1.0m tray',
+    baseFare: 266.0,
+    baseKm: 2,
+    perKmRate: 18.0,
+    helperFee: 80.0,
+    etaMins: 8,
+    iconType: 'eloader',
+    popularFor: 'Low cost, zero emission commercial transit'
+  },
+  {
+    id: 'tata_ace',
+    name: 'Tata Ace (Chota Hathi)',
+    subTitle: 'India\'s #1 Choice for Goods Transport',
+    tagline: 'Bulky furniture, up to 30 cartons, hardware, trades supplies',
+    capacityKg: 750,
+    dimensions: '2.1m x 1.4m x 1.3m cargo bed',
+    baseFare: 450.0,
     baseKm: 4,
-    perKmRate: 3.4,
-    helperFee: 35.0,
-    etaMins: 6,
-    iconType: 'van',
-    popularFor: 'E-commerce, wholesale & store deliveries'
-  },
-  {
-    id: 'ute_flatdeck',
-    name: 'Flat Deck Ute (Hilux / Ranger)',
-    subTitle: 'Open Wellside & Flat Deck 1-Tonne Carrier',
-    tagline: 'Plywood, landscaping, timber, surfboards, whiteware appliances',
-    capacityKg: 1100,
-    dimensions: '2.4m (L) x 1.8m (W) flat open tray',
-    baseFare: 55.0,
-    baseKm: 4,
-    perKmRate: 3.8,
-    helperFee: 40.0,
-    etaMins: 7,
-    iconType: 'ute',
-    popularFor: 'Building materials, tradies & hardware'
-  },
-  {
-    id: 'box_truck_2t',
-    name: '2-Tonne Box Truck + Tail Lift',
-    subTitle: 'Enclosed Pantech Truck with Hydraulic Lift',
-    tagline: 'Palletized commercial cargo, beds, bulky sofas, store stock',
-    capacityKg: 2200,
-    dimensions: '4.2m (L) x 2.1m (W) x 2.2m (H)',
-    baseFare: 89.0,
-    baseKm: 5,
-    perKmRate: 4.6,
-    helperFee: 50.0,
-    etaMins: 10,
+    perKmRate: 28.0,
+    helperFee: 150.0,
+    etaMins: 5,
     iconType: 'truck',
-    popularFor: 'Heavy retail & multi-pallet transport'
+    popularFor: 'Wholesale, electronics, house shifting'
   },
   {
-    id: 'heavy_truck_5t',
-    name: '5-Tonne Freight Truck (Curtainsider)',
-    subTitle: 'Heavy Commercial Inter-Suburban Hauler',
-    tagline: 'Up to 10 standard CHEP pallets, machinery, industrial orders',
-    capacityKg: 5000,
-    dimensions: '6.5m (L) x 2.4m (W) x 2.4m (H)',
-    baseFare: 145.0,
-    baseKm: 5,
-    perKmRate: 6.2,
-    helperFee: 65.0,
-    etaMins: 15,
-    iconType: 'heavy',
-    popularFor: 'Factory, warehouse and distribution'
+    id: '10ft',
+    name: '10ft Truck',
+    subTitle: 'Large Enclosed Commercial Container',
+    tagline: 'Bulky machinery, event equipment, industrial pallet freight',
+    capacityKg: 1700,
+    dimensions: '3.0m x 1.8m x 1.8m container',
+    baseFare: 862.0,
+    baseKm: 4,
+    perKmRate: 38.0,
+    helperFee: 250.0,
+    etaMins: 11,
+    iconType: 'truck',
+    popularFor: 'Large warehouse & factory logistics',
+    badge: 'New'
   },
   {
     id: 'packers_movers',
-    name: 'Kiwi House Relocations',
-    subTitle: 'Full Home & Apartment Moving with 2 Movers',
-    tagline: 'Moving blankets, straps, tail-lift truck, disassembly & care',
+    name: 'Packers & Movers',
+    subTitle: 'Professional House & Office Relocation',
+    tagline: 'Trained movers, bubble wrap, dismantling & safe placement',
     capacityKg: 2500,
-    dimensions: 'Enclosed Truck + 2 Professional Movers',
-    baseFare: 195.0,
+    dimensions: 'Enclosed Truck + 2 Helpers',
+    baseFare: 1250.0,
     baseKm: 5,
-    perKmRate: 5.5,
-    helperFee: 80.0,
-    etaMins: 18,
+    perKmRate: 45.0,
+    helperFee: 350.0,
+    etaMins: 15,
     iconType: 'movers',
-    popularFor: 'Stress-free home & flat shifting'
+    popularFor: 'Stress-free home shifting & packing'
   }
 ];
 
 export const CITY_HUBS: CityHub[] = [
+  {
+    id: 'gurugram',
+    name: 'Gurugram (NCR)',
+    state: 'Haryana',
+    center: { x: 50, y: 50 },
+    popularLandmarks: [
+      {
+        x: 48,
+        y: 28,
+        name: 'Sector 48, Gurugram',
+        address: 'B1, B2, B3, Sector 48, Gurugram, Haryana 122018, India',
+        area: 'Sector 48',
+        city: 'Gurugram'
+      },
+      {
+        x: 52,
+        y: 45,
+        name: '505, Iris Tech Park',
+        address: 'Iris Tech Park, Sector 48, Gurugram, Haryana, India',
+        area: 'Iris Tech Park',
+        city: 'Gurugram'
+      },
+      {
+        x: 60,
+        y: 50,
+        name: 'Artemis Hospital Gurgaon',
+        address: 'Sector 51, Gurugram, Haryana, India',
+        area: 'Sector 51',
+        city: 'Gurugram'
+      },
+      {
+        x: 35,
+        y: 65,
+        name: '402, Udyog Vihar III',
+        address: 'Sector 20, Gurugram, Haryana 122022, India',
+        area: 'Udyog Vihar',
+        city: 'Gurugram'
+      },
+      {
+        x: 70,
+        y: 80,
+        name: 'Signature Global Synera 81',
+        address: 'Sector 81, Gurugram, Haryana, India',
+        area: 'Sector 81',
+        city: 'Gurugram'
+      }
+    ]
+  },
+  {
+    id: 'delhi',
+    name: 'Delhi NCR',
+    state: 'Delhi',
+    center: { x: 52, y: 48 },
+    popularLandmarks: [
+      {
+        x: 50,
+        y: 40,
+        name: 'Connaught Place',
+        address: 'Radial Road, Connaught Place, New Delhi 110001',
+        area: 'CP Central',
+        city: 'Delhi'
+      },
+      {
+        x: 65,
+        y: 60,
+        name: 'Okhla Industrial Area Phase III',
+        address: 'Okhla Phase 3, New Delhi 110020',
+        area: 'Okhla',
+        city: 'Delhi'
+      }
+    ]
+  },
+  {
+    id: 'mumbai',
+    name: 'Mumbai',
+    state: 'Maharashtra',
+    center: { x: 45, y: 55 },
+    popularLandmarks: [
+      {
+        x: 46,
+        y: 45,
+        name: 'Bandra Kurla Complex (BKC)',
+        address: 'G Block, BKC, Bandra East, Mumbai 400051',
+        area: 'BKC',
+        city: 'Mumbai'
+      },
+      {
+        x: 42,
+        y: 35,
+        name: 'Andheri East MIDC',
+        address: 'Central Road, Andheri East, Mumbai 400093',
+        area: 'Andheri East',
+        city: 'Mumbai'
+      }
+    ]
+  },
+  {
+    id: 'bengaluru',
+    name: 'Bengaluru',
+    state: 'Karnataka',
+    center: { x: 55, y: 52 },
+    popularLandmarks: [
+      {
+        x: 50,
+        y: 50,
+        name: 'Koramangala 4th Block',
+        address: '80 Feet Road, Koramangala, Bengaluru 560034',
+        area: 'Koramangala',
+        city: 'Bengaluru'
+      },
+      {
+        x: 65,
+        y: 40,
+        name: 'Whitefield Tech Park',
+        address: 'ITPL Main Road, Whitefield, Bengaluru 560066',
+        area: 'Whitefield',
+        city: 'Bengaluru'
+      }
+    ]
+  },
   {
     id: 'auckland',
     name: 'Auckland (Tāmaki Makaurau)',

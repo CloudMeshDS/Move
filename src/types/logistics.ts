@@ -1,10 +1,16 @@
 export type VehicleCategoryId = 
+  | '2_wheeler'
+  | 'scooter'
+  | '3_wheeler'
+  | 'e_loader'
+  | 'tata_ace'
+  | '10ft'
+  | 'packers_movers'
   | 'courier' 
   | 'cargo_van' 
   | 'ute_flatdeck' 
   | 'box_truck_2t' 
-  | 'heavy_truck_5t' 
-  | 'packers_movers';
+  | 'heavy_truck_5t';
 
 export interface VehicleOption {
   id: VehicleCategoryId;
@@ -12,15 +18,18 @@ export interface VehicleOption {
   subTitle: string;
   tagline: string;
   capacityKg: number;
-  dimensions: string; // e.g., "3.0m x 1.7m x 1.6m"
+  dimensions: string;
   baseFare: number;
   baseKm: number;
   perKmRate: number;
   helperFee: number;
   etaMins: number;
-  iconType: 'courier' | 'van' | 'ute' | 'truck' | 'heavy' | 'movers';
+  iconType: 'courier' | 'van' | 'ute' | 'truck' | 'heavy' | 'movers' | 'bike' | 'scooter' | '3wheeler' | 'eloader';
   popularFor: string;
+  badge?: string; // e.g. "New"
+  dimensionTag?: string; // e.g. "40 CM"
 }
+
 
 export type OrderStatus =
   | 'draft'
